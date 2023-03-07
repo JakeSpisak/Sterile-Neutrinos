@@ -34,13 +34,16 @@ f_pi = 131 # for pion channel decay
 # QCD Transition temperature and width
 T_qcd = 170
 w_qcd = 10
+
+# Unit conversions
+MeVtoHz = 10**6/(6.582*10**-16) 
     
 #################################
 #EQUATIONS
 ##################################
 
 
-# All temperatures and masses are in energy units
+# All temperatures and masses are in MeV. Lifetimes are in seconds
 
 
 # Neutrino thermal scattering coefficients
@@ -114,27 +117,42 @@ def boltmann_supressed(T, ms):
     else:
         return True
     
-def SID_rate_DW(T, theta, ms):
+def SID_rate_DW(p, T, theta, ms):
     """Compute the SID sterile production rate according to Dodelson-Widrow's
     original paper."""
-    vaccum_rate = (7*np.pi/24)*(Gf**2)*p(T)*(T**4)*np.sin(2*theta)**2
-#    Veff = -4*np.sqrt(2)*17*Gf*T**4*p(T)/(2*np.pi**2*m_W**2)
+    vaccum_rate = (7*np.pi/24)*(Gf**2)*p*(T**4)*np.sin(2*theta)**2
+#    Veff = -4*np.sqrt(2)*17*Gf*T**4*p/(2*np.pi**2*m_W**2)
     c_DW = 4*np.sin(2*thetaW)**2/(15*fine_structure)
-    sinsq2th_matter = np.sin(2*theta)**2*ms**2/(np.sin(2*theta)**2*ms**2 + (c_DW*vaccum_rate*p(T)/ms + ms/2)**2)
+    sinsq2th_matter = np.sin(2*theta)**2*ms**2/(np.sin(2*theta)**2*ms**2 + (c_DW*vaccum_rate*p/ms + ms/2)**2)
     return 0.5*vaccum_rate*sinsq2th_matter
 
-def SID_rate(T, theta, ms, flavor, antineutrino=False):
+def SID_rate(p, T, theta, ms, flavor, antineutrino=False):
     """Compute the SID sterile production rate according to a more 
     detailed perscription."""
-    delta = ms**2/(2*p(T))
+    delta = ms**2/(2*p)
     numerator = 0.5*(delta*np.sin(2*theta))**2
-    denominator = ((delta*np.sin(2*theta))**2 + (active_scattering_rate(T, flavor)/2)**2 + 
-                   (delta*np.cos(2*theta) - matter_potential(T, flavor, antineutrino))**2)
+    denominator = ((delta*np.sin(2*theta))**2 + (active_scattering_rate(p, T, flavor)/2)**2 + 
+                   (delta*np.cos(2*theta) - matter_potential(p, T, flavor, antineutrino))**2)
     conversion_probability = numerator/denominator
     
-    return 0.5*active_scattering_rate(T, flavor)*conversion_probability
+    return 0.5*active_scattering_rate(p, T, flavor)*conversion_probability
 
-def matter_potential(T, flavor, antineutrino=False):
+def SID_rate_integrated(T, theta, m5, flavor):
+    """Compute the SID sterile production rate, integrated over momentum."""
+    if np.isscalar(T):
+        integrand = lambda p: ec.SID_rate(p, T, theta, m5, flavor)*p**2/(np.exp(p/T)+1)
+        result, err = quad(integrand, 0.01*T, 10*T)
+        return result/(1.5*T**3*zeta(3))
+    else:
+        rates = []
+        for Ti in T:
+            integrand = lambda p: ec.SID_rate(p, Ti, theta, m5, flavor)*p**2/(np.exp(p/Ti)+1)
+            result, err = quad(integrand, 0.01*Ti, 10*Ti)
+            rates.append(result/(1.5*Ti**3*zeta(3)))
+        return np.array(rates)
+            
+
+def matter_potential(p, T, flavor, antineutrino=False):
     """The neutrino matter potential."""
     if antineutrino:
         prefactor = -1
@@ -142,8 +160,8 @@ def matter_potential(T, flavor, antineutrino=False):
         prefactor = 1
     n_nu = 2*zeta(3)*T**3/(4*np.pi**2)    
     baryon_potential = prefactor*np.sqrt(2)*Gf*2*zeta(3)*T**3*eta_B/(4*np.pi**2)
-    Z_potential = 8*np.sqrt(2)*Gf*2*n_nu*p(T)**2/(3*m_Z**2)
-    W_potential = 8*np.sqrt(2)*Gf*2*n_lepton(T, flavor)*p(T)*E_avg_lepton(T, flavor)/(3*m_W**2)
+    Z_potential = 8*np.sqrt(2)*Gf*2*n_nu*p**2/(3*m_Z**2)
+    W_potential = 8*np.sqrt(2)*Gf*2*n_lepton(T, flavor)*p*E_avg_lepton(T, flavor)/(3*m_W**2)
     
     return baryon_potential + Z_potential + W_potential
     
@@ -185,9 +203,9 @@ def E_avg_lepton(T, flavor):
                 results.append(m)
         return results
     
-def active_scattering_rate(T, flavor):
+def active_scattering_rate(p, T, flavor):
     """The active neutrino scattering rate"""
-    return C(T, flavor)*Gf**2*p(T)*T**4
+    return C(T, flavor)*Gf**2*p*T**4
     
 def C(T, flavor):
     """Active neutrino scattering rate coefficients. Valid up to 100GeV. 
@@ -235,10 +253,24 @@ def lifetime(ms, theta):
     """The approximate lifetime (in MeV^-1) of a sterile decaying into three neutrinos
     or a pion and electon"""
     if ms < m_pipm:
-        return (192*np.pi**3/Gf**2)*ms**-5*np.sin(theta)**-2
+        return (192*np.pi**3/Gf**2)*ms**-5*np.sin(theta)**-2/MeVtoHz
     else:
         mass_terms = ms**-1*((ms**2-(m_pipm + m_e)**2)*(ms**2-(m_pipm - m_e)**2))**-0.5
-        return 16*np.pi*(Gf*f_pi*np.sin(theta))**-2*mass_terms
+        return 16*np.pi*(Gf*f_pi*np.sin(theta))**-2*mass_terms/MeVtoHz
+    
+def m4_dark_matter(m_5, tau_5, g_Tf4, g_Tf5):
+    """Return the mass of the lightest sterile (m_4) required
+    for it to constitute all of the dark matter. Masses in MeV,
+    lifetime in seconds. 
+    """
+    m_4 = 10**-3*(m_5/1850)*np.sqrt(tau_5/1)*g_Tf4/g_Tf5
+    return m_4
+
+def dark_matter_frac(m_4, m_5, tau_5, g_Tf4, g_Tf5):
+    """Return the dark matter fraction, relative to the known abundance.
+    Masses in MeV, lifetime in seconds. 
+    """
+    return (m_4/0.001)*(1850/m_5)*np.sqrt(1/tau_5)*g_Tf5/g_Tf4
 
 #lepton_integral. Assumes saved calculation results that can be interpolated.
 
