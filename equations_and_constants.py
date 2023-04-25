@@ -35,6 +35,9 @@ m_W, m_Z, m_H = 80400,91200,125090
 m_p, m_n = 938,939
 # Mesons
 m_pi0, m_pipm, m_K0, m_Kpm, m_eta, m_etaprime, m_rhopm, m_rho0, m_omega = 134.9766,139.570,497.614,493.678,647.862,957.78,775.11,775.26,782.65
+# all masses
+masses = np.sort([m_e, m_mu, m_tau, m_u, m_d, m_s, m_c, m_b, m_t, m_W, m_Z, m_H, m_pi0, m_pipm, m_K0, m_Kpm, m_eta, m_etaprime, m_rhopm, m_rho0, m_omega])
+discontinuity_masses = np.sort([m_mu, m_tau, m_c, m_b, m_t, m_W, m_Z, m_H, m_pi0, m_pipm])
 
 # Other fundamental constants, all in MeV unless otherwise noted
 Gf = 1.166 * 10**-5 *10**-6 #MeV**-2
@@ -50,6 +53,7 @@ h=0.7 # hubble factor
 omega_dm_hsq = 0.120 #omega_m*h^2, planck 2018, error is 0.001
 H100 =  100*3.24*10**-20*HztoMeV
 Tcmb = 2.725*KtoMeV
+TcmbtoTcnub = (4./11)**(1./3)
 
 
 #################################
@@ -64,6 +68,9 @@ for i, flavor in enumerate(['electron', 'muon', 'tau']):
     qoverTdomain = np.array(df.loc[df['T/MeV'] == 10000.00, 'q/T'])
     Tdomain = np.flip(np.array(df.loc[df['q/T'] == 1.00, 'T/MeV']))
     coefficients = np.flip(np.array(df['hat{I_Q}']).reshape((len(Tdomain), len(qoverTdomain))), axis=0)
+    # Append a T=0 data point with the same coefficients as T=1 MeV
+    coefficients = np.insert(coefficients, 0, coefficients[0], axis=0)
+    Tdomain = np.insert(Tdomain, 0, 0)
     scattering_coeffs_dict[flavor] = interpolate.RegularGridInterpolator((Tdomain, qoverTdomain), coefficients, bounds_error=True, fill_value=None)
     
 def scattering_coeffs_1Mev_to_5_GeV(T, p, flavor):
@@ -113,13 +120,10 @@ def active_scattering_rate(p, T, flavor, merle_simplification=False):
         return np.array(results)
     
 #################################
-#Equations
+#Standard Model Thermodynamics
 ##################################
 
-
-# All temperatures and masses are in MeV. Lifetimes are in seconds
-
-def compute_SM_relativistic_dof(T):
+def compute_SM_relativistic_dof_approx(T):
     """Calculate the relativistic degrees of freedom for the purposes of 
     computing the energy density. Valid up to arbitrarily high temperatures,
     and down to weak decoupling. Makes the approximation of g=0 once m>T."""
@@ -130,8 +134,8 @@ def compute_SM_relativistic_dof(T):
     masses = [m_e, m_mu, m_tau, m_u, m_d, m_s, m_c, m_b, m_t,m_W, m_Z,m_H,m_p,m_n,
                       m_pi0, m_pipm, m_K0, m_Kpm, m_eta, m_etaprime, m_rhopm, m_rho0, m_omega]
 
-    # stat = ['f','f','f','f','f','f','f','f','f','b','b','b',
-    #         'f','f','b','b','b','b','b','b','b','b','b']
+    stats = ['f','f','f','f','f','f','f','f','f','b','b','b',
+            'f','f','b','b','b','b','b','b','b','b','b']
     #.....Particle class: 'l' for lepton, 'q' for quark, 'g' for gauge bosons (and Higgs), 'h' for hadron
     particle_classes = ['l','l','l','q','q','q','q','q','q','g','g','g',
              'h','h','h','h','h','h','h','h','h','h','h']
@@ -140,13 +144,13 @@ def compute_SM_relativistic_dof(T):
 
     #.....Statistical weights for massless or nearly massless particles (photons, neutrinos, gluons)
     gphot = 2. # Photon dofs
-    gnuact = 3*2 # Active neutrino dofs: prior to weak decoupling 
+    gnuact = 3*2*7./8 # Active neutrino dofs: prior to weak decoupling 
     ggl = 16./(np.exp((T_qcd-T)/w_qcd)+1.) # Gluon dofs
     g_tot = gphot+gnuact+ggl
     
     # Massive particles approximation: simply set g_rel=0 when m<T. 
     # Also account for QCD phase transition
-    for mass, particle_class, gdof in zip(masses, particle_classes, gdofs):
+    for mass, stat, particle_class, gdof in zip(masses, stats, particle_classes, gdofs):
         if mass>T:
             gdof = 0
         if(particle_class == 'q'): 
@@ -161,9 +165,151 @@ def compute_SM_relativistic_dof(T):
             # avoid overflow warnings
             else:
                 gdof=0
+        if stat=='f':
+            gdof *= 7./8
         g_tot += gdof
         
     return g_tot
+
+def compute_energy_density(T, m, sign):
+    """Return the energy density for a particle with a single degree of freedom. 
+    T and m in MeV. sign = 1: bose-einstein. sign=-1: fermi-dirac"""
+    assert sign in [1, -1]
+    y = float(m)/T
+    # limits
+    if y < 0.01:
+        if sign == 1:
+            return T**4*(7/8.)*np.pi**2/30
+        elif sign == -1:
+            return T**4*np.pi**2/30
+    if y > 20:
+        return 0
+    # intermediate calculation
+    def integrand(x):
+        return x**2 * np.sqrt(x**2 + y**2)/(np.exp(np.sqrt(x**2 + y**2)) + sign)
+    result, err = quad(integrand, 0.1, 20)
+    return T**4*result/(2*np.pi**2)
+
+def compute_pressure(T, m, sign):
+    """Return the pressure for a particle with a single degree of freedom. 
+    T and m in MeV. sign = 1: bose-einstein. sign=-1: fermi-dirac"""
+    assert sign in [1, -1]
+    y = float(m)/T
+    # limits
+    if y < 0.01:
+        return compute_energy_density(T, m, sign)/3.
+    if y > 20:
+        return 0
+    # intermediate calculation
+    def integrand(x):
+        return x**4/(3*np.sqrt(x**2 + y**2)*(np.exp(np.sqrt(x**2 + y**2)) + sign))
+    result, err = quad(integrand, 0.1, 20)
+    return T**4*result/(2*np.pi**2)
+
+def compute_drho_dT(T, m, sign):
+    """Return the drho/dT for a particle with a single degree of freedom. 
+    T and m in MeV. sign = 1: bose-einstein. sign=-1: fermi-dirac"""
+    assert sign in [1, -1]
+    y = float(m)/T
+    
+    if y < 0.01:
+        return 4*compute_energy_density(T, m, sign)/T
+    if y > 20:
+        return 0
+    
+    # intermediate calculation
+    def integrand(x):
+        return x**2*(x**2+y**2)*np.exp(np.sqrt(x**2 + y**2))/(np.exp(np.sqrt(x**2 + y**2)) + sign)**2
+    result, err = quad(integrand, 0.1, 20)
+    return T**3*result/(2*np.pi**2)
+
+def compute_entropy_density(T, m, sign):
+    """Return the entropy for a particle with a single degree of freedom. 
+    T and m in MeV. sign = 1: bose-einstein. sign=-1: fermi-dirac"""
+    return (compute_energy_density(T, m, sign) + compute_pressure(T, m, sign))/T
+    
+def compute_total_thermodynamic_quantities(T):
+    """Calculate the total energy density, pressure, entropy density, and drho/dT of all standard model particles. 
+    Valid up to arbitrarily high temperatures, and down to weak decoupling. It does not treat electron-positron
+    annihilation correctly."""
+    #.....Enter particle characteristics, in the following order of particles: 
+    #.....Leptons: e,mu,tau; Quarks: u,d,s,c,b,t; Gauge bosons (and Higgs): W+-,Z,H;
+    #.....Baryons: p,n; Mesons: pi0,pi+-,K0,K+-,eta,eta',rho+-,rho0,omega
+    #.....Massless particles: photon, all neutrinos, all gluons
+    #.....Particle masses in MeV
+    masses = [m_e, m_mu, m_tau, m_u, m_d, m_s, m_c, m_b, m_t,m_W, m_Z,m_H,m_p,m_n,
+              m_pi0, m_pipm, m_K0, m_Kpm, m_eta, m_etaprime, m_rhopm, m_rho0,m_omega,
+              0,0,0]
+
+    stats = ['f','f','f','f','f','f','f','f','f','b','b','b',
+            'f','f','b','b','b','b','b','b','b','b','b','b','f','b']
+    #.....Particle class: 'l' for lepton, 'q' for quark, 'g' for gauge bosons (and Higgs), 'h' for hadron 
+    particle_classes = ['l','l','l','q','q','q','q','q','q','g','g','g',
+             'h','h','h','h','h','h','h','h','h','h','h','g','l','g']
+    gdofs = [4.,4.,4.,12.,12.,12.,12.,12.,12.,6.,3.,1., 
+            4.,4.,1.,2.,2.,2.,1.,1.,6.,3.,3.,2.,6.,16./(np.exp((T_qcd-T)/w_qcd)+1.)]
+
+    
+    # Calculate the contribution from each species
+    rho, pressure, drho_dT = 0, 0, 0
+    for mass, stat, particle_class, gdof in zip(masses, stats, particle_classes, gdofs):
+        if(particle_class == 'q'): 
+            if T>0.1*T_qcd:
+                gdof=gdof/(np.exp((T_qcd-T)/w_qcd)+1.)
+            # avoid overflow warnings 
+            else:
+                gdof=0
+        elif(particle_class == 'h'):
+            if T<10*T_qcd:
+                gdof=gdof/(np.exp((T-T_qcd)/w_qcd)+1.)
+            # avoid overflow warnings
+            else:
+                gdof=0
+        if stat=='b':
+            sign=-1
+        elif stat=='f':
+            sign=1
+        rho += gdof*compute_energy_density(T, mass, sign)
+        pressure += gdof*compute_pressure(T, mass, sign)
+        drho_dT += gdof*compute_drho_dT(T, mass, sign)
+    entropy_density = (rho + pressure)/T
+        
+    return rho, pressure, drho_dT, entropy_density
+
+def save_thermodynamic_quantities(Tdomain, path):
+    energy_density, pressure, drho_dT, entropy_density = [], [], [], []
+    for T in Tdomain:
+        r, p, dr, e = compute_total_thermodynamic_quantities(T)
+        energy_density.append(r)
+        pressure.append(p)
+        drho_dT.append(dr)
+        entropy_density.append(e)
+        
+    results = {
+        'Tdomain':Tdomain,
+        'energy_density':energy_density,
+        'pressure':pressure,
+        'drho_dT':drho_dT,
+        'entropy_density':entropy_density
+    }
+    with open(path, 'wb') as file:
+        pickle.dump(results, file)
+        
+# Save the thermodynamic quantities to interpolated functions
+with open('/home/jakespisak/Fuller/sterile_sterile_interactions/for_boltzmann_calc/SM_thermodynamic_quantities.pkl', 'rb') as file:
+    thermodynamic_results = pickle.load(file)
+SM_energy_density = interpolate.interp1d(thermodynamic_results['Tdomain'], thermodynamic_results['energy_density'])
+SM_pressure = interpolate.interp1d(thermodynamic_results['Tdomain'], thermodynamic_results['pressure'])
+SM_drho_dT = interpolate.interp1d(thermodynamic_results['Tdomain'], thermodynamic_results['drho_dT'])
+SM_entropy_density = interpolate.interp1d(thermodynamic_results['Tdomain'], thermodynamic_results['entropy_density'])
+    
+    
+#################################
+#Other Equations
+##################################
+
+
+# All temperatures and masses are in MeV. Lifetimes are in seconds
 
 def boltmann_supressed(T, ms):
     """Return true if sterile is boltzmann supressed (T>m)"""
@@ -267,11 +413,7 @@ def avg_p(T):
 
 def Hubble_rate(T):
     """Hubble rate. Only includes SM particles"""
-    if np.isscalar(T):
-        dof = compute_SM_relativistic_dof(T)
-    else:
-        dof = [compute_SM_relativistic_dof(Tx) for Tx in T]
-    return np.sqrt((8*np.pi*grav/3)*T**4*dof*np.pi**2/120)
+    return np.sqrt((8*np.pi*grav/3)*SM_energy_density(T))
 
 # From 2017 Kev's sterile neutrino review
 def Tmax(ms):
@@ -334,7 +476,7 @@ def rho_to_omegahsq(rho):
 
 #lepton_integral. Assumes saved calculation results that can be interpolated.
 
-with open("/home/jakespisak/Fuller/sterile_sterile_interactions/lepton_integral/lepton_integrals.pkl", 'rb') as f:
+with open("/home/jakespisak/Fuller/sterile_sterile_interactions/for_boltzmann_calc/lepton_integrals.pkl", 'rb') as f:
     # load the dictionary from the file
     lepton_integral_dict = pickle.load(f)
 l2 = interpolate.interp1d(lepton_integral_dict[2]['x'], lepton_integral_dict[2]['value'])
@@ -347,3 +489,37 @@ def lepton_integral_interp(n,x):
     else:
         print("n value isn't 2 or 3: doing the numerical integration")
         return lepton_integral(n,x)
+    
+def boltzmann_integrand(Tprime, p, Tf, theta, ms, flavor, antineutrino=False, merle_simplification=False):
+    """Integrand for the boltzmann equation"""
+    momentum = p*(SM_entropy_density(Tprime)/SM_entropy_density(Tf))**(1./3)
+    return fermi_dirac(momentum, Tprime, eta=0)*h(momentum, Tprime, theta, ms, flavor, antineutrino, merle_simplification)/(dTemperature_dtime(Tprime))
+
+def boltzmann_solve(p, Ti, Tf, theta, ms, flavor, discontinuity_masses, antineutrino=False, merle_simplification=False):
+    """Solve for the sterile neutrino distribution funciton by integrating the boltzmann equation"""
+    limits = np.sort([m for m in discontinuity_masses if m < Ti and m > Tf] + [Ti, Tf])[::-1]
+    total_result, total_err = 0, 0
+    for i in range(len(limits)-1):
+        result, err = quad(boltzmann_integrand, limits[i], limits[i+1], args=(p, Tf, theta, ms, flavor, antineutrino, merle_simplification))
+        total_result += result
+        total_err += err
+    return total_result, total_err
+
+def compute_f_and_omegahsq(ms, theta, merle_simplification, flavor, Ti, Tf, poverT_min=0.01, poverT_max=15, antineutrino=False):
+    poverTs = np.logspace(np.log10(poverT_min), np.log10(poverT_max), 100)
+    f = []
+    for p in poverTs*Tf:
+        result, err = solve(p, Ti, Tf, theta, ms, flavor, discontinuity_masses, antineutrino, merle_simplification)
+        f.append(-1*result)
+    f_xsq_integrand = interpolate.interp1d(poverTs, f*poverTs**2, kind='linear')
+    fint, err = quad(f_xsq_integrand, poverT_min, poverT_max)
+    
+    # Compute number density today: multiplying by two to include antineutrinos
+    ndens = fint_to_n(2*fint, Tcmb)
+    omegahsq = rho_to_omegahsq(ms*ndens)
+    
+    return f, poverTs, f_xsq_integrand, omegahsq 
+
+def dTemperature_dtime(T):
+    """Compute the time vs temperature relation in the SM plasma"""
+    return -1*3*Hubble_rate(T)*(SM_energy_density(T)+SM_pressure(T))*SM_drho_dT(T)**-1
