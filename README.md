@@ -1,0 +1,1 @@
+First run leptonintegral.py and standardmodel.py to precompute the lepton integral results and the background evolution of the SM. Then run darksector.py to compute the evolution of the dark sector temperature.
