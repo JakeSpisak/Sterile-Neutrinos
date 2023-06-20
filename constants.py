@@ -9,6 +9,7 @@ MeVtoJ = 10**6*charge
 JtoMeV = 10**-6/charge
 kb =  1.380649*10**-23 #J/K 
 KtoMeV = kb*JtoMeV
+MeVtoK = 1/KtoMeV
 eVtoMeV = 10**-6
 c = 2.9979*10**8 #m/s
 MeVtoinversecm = 10**6/(hbar*c*100)
@@ -29,6 +30,8 @@ H100 =  100*3.24*10**-20*HztoMeV
 Tcmb = 2.725*KtoMeV
 TcmbtoTcnub = (4./11)**(1./3)
 rho_crit_over_hsq = 3*H100**2/(8*np.pi*grav)
+fine_structure = 7.297352*10**-3
+f_pion_decay = 131 # for pion channel decay
 
 # SM Masses, all in MeV
 
