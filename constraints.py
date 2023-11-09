@@ -38,6 +38,11 @@ def total_decay_rate(ms, theta):
 
 total_decay_rate = np.vectorize(total_decay_rate)
 
+def total_decay_lifetime(inverse_branching_ratio, ms, theta):
+    """SM decay lifetime, In 1/MeV"""
+    return (inverse_branching_ratio*decay_rate_3nu(ms, theta))**-1
+
+
 def compute_elapsed_time(a_start, a_end):
     """Compute the time elapsed between two scale factors, in seconds"""
     integrand = lambda a: 1/(a*ds.hubble_rate_func(ds.T_SM_func(a))*c.MeVtoHz)

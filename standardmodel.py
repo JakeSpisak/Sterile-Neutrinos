@@ -41,11 +41,11 @@ def compute_total_thermodynamic_quantities(T):
 
 def compute_energy_density(T, m, sign):
     """Return the energy density for a particle with a single degree of freedom. 
-    T and m in MeV. sign = 1: bose-einstein. sign=-1: fermi-dirac"""
+    T and m in MeV. sign = -1: bose-einstein. sign=1: fermi-dirac"""
     assert sign in [1, -1]
     y = float(m)/T
     # limits
-    if y < 0.01:
+    if y < 0.1:
         if sign == 1:
             return T**4*(7/8.)*np.pi**2/30
         elif sign == -1:
@@ -66,7 +66,7 @@ def compute_pressure(T, m, sign):
     assert sign in [1, -1]
     y = float(m)/T
     # limits
-    if y < 0.01:
+    if y < 0.1:
         return compute_energy_density(T, m, sign)/3.
     if y > 20:
         return 0
@@ -82,7 +82,7 @@ def compute_drho_single_dT(T, m, sign):
     assert sign in [1, -1]
     y = float(m)/T
     # limits
-    if y < 0.01:
+    if y < 0.1:
         return 4*compute_energy_density(T, m, sign)/T
     if y > 20:
         return 0
