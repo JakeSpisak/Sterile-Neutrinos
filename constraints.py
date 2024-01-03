@@ -2,6 +2,7 @@ import numpy as np
 import constants as c
 from scipy import integrate
 import darksector as ds
+import sid
 
 def compute_effective_free_streaming_mass(T_DS, T_SM, ms):
     """Compute the effective free streaming mass of the dark matter sterile neutrino"""
@@ -43,9 +44,15 @@ def total_decay_lifetime(inverse_branching_ratio, ms, theta):
     return (inverse_branching_ratio*decay_rate_3nu(ms, theta))**-1
 
 
-def compute_elapsed_time(a_start, a_end):
+def compute_elapsed_time_vs_scale_factor(a_start, a_end):
     """Compute the time elapsed between two scale factors, in seconds"""
     integrand = lambda a: 1/(a*ds.hubble_rate_func(ds.T_SM_func(a))*c.MeVtoHz)
     result, err = integrate.quad(integrand, a_start, a_end)
+    return result
+
+def compute_elapsed_time_vs_temp(T_start, T_end):
+    """Compute the time elapsed between two SM temperatures, in seconds"""
+    integrand = lambda T: 1/sid.dTemperature_dtime(T)
+    result, err = integrate.quad(integrand, T_start, T_end)
     return result
 

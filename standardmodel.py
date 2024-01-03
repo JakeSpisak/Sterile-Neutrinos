@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import interpolate, integrate, optimize
+from scipy import interpolate, integrate, optimize, special
 import constants as c
 import pickle
 import os
@@ -57,8 +57,29 @@ def compute_energy_density(T, m, sign):
         return x**2 * np.sqrt(x**2 + y**2)/(np.exp(np.sqrt(x**2 + y**2)) + sign)
     result, err = integrate.quad(integrand, 0.1, 20)
     return T**4*result/(2*np.pi**2)
-# vectorize compute_energy_density
-compute_energy_density = np.vectorize(compute_energy_density)
+# # vectorize compute_energy_density
+# compute_energy_density = np.vectorize(compute_energy_density)
+
+def compute_number_density(T, m, sign):
+    """Return the number density for a particle with a single degree of freedom. 
+    T and m in MeV. sign = -1: bose-einstein. sign=1: fermi-dirac"""
+    assert sign in [1, -1]
+    y = float(m)/T
+    # limits
+    if y < 0.1:
+        if sign == 1:
+            return T**3*3*special.zeta(3)/(4*np.pi**2)
+        elif sign == -1:
+            return T**3*special.zeta(3)/(np.pi**2)
+    if y > 20:
+        return 0
+    # intermediate calculation
+    def integrand(x):
+        return x**2/(np.exp(np.sqrt(x**2 + y**2)) + sign)
+    result, err = integrate.quad(integrand, 0.1, 20)
+    return T**3*result/(2*np.pi**2)
+# # vectorize compute_energy_density
+# compute_number_density = np.vectorize(compute_number_density)
 
 def compute_pressure(T, m, sign):
     """Return the pressure for a particle with a single degree of freedom. 

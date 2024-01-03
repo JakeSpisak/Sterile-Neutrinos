@@ -345,6 +345,9 @@ try:
 except Exception as e:
     print("WARNING: Error loading precomputed standard model data. Make sure you have run standardmodel.py, Error message: {str(e)}}")
 
+def dTemperature_dtime(T):
+    return sm.dTemperature_dtime(T, hubble_rate, SM_energy_density, SM_pressure, SM_drho_dT)
+
 def boltzmann_integrand_T(log_Tprime, y, Tf, theta, ms, flavor, antineutrino=False, simplify=False):
     """Integrand for the boltzmann equation with temperature 'Tprime' as the independent variable. 
     The RHS of the equation (df_s/dlog(T))(y, T) = RHS 

@@ -1,6 +1,5 @@
 .ipynb_checkpoints/*
 __pycache__/
-results/
 old/
 data/heavy_sterile_constraints
 plots/
