@@ -81,7 +81,8 @@ def compute_current_DM_ndens(T_SM, T_DS):
     - The actual entropic degrees of freedom at that point in time are well-decribed by the
     approximate number
     """
-    scale_factor_ratio = (c.Tcmb/T_SM)*(sm.compute_SM_relativistic_dof_approx(c.Tcmb)/sm.compute_SM_relativistic_dof_approx(T_SM))**(1/3.0)
+    scale_factor_ratio = T_SM_to_a(T_SM)/T_SM_to_a(2) # Ratio from T_SM to 2 MeV 
+    scale_factor_ratio *= c.Tcnub/2 # Ratio from 2 MeV to today
     T_DS_today = T_DS*scale_factor_ratio
     # Assumes 2 DOFS for the sterile neutrino
     ndens_today = 2*(3./2)*zeta(3)*(T_DS_today)**3/(2*np.pi**2)
