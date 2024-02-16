@@ -172,7 +172,7 @@ def gamma_s_2to2(p, temp, beta, Gphi_over_Gf):
 
 def gamma_s_2to4(p, temp, beta, Gphi_over_Gf, phase_space_ratio=1):
     """Compute the approximate 2 to 4 scattering rate for the dark sector"""
-    return phase_space_ratio*(Gphi_over_Gf*c.Gf)**2*temp**4*gamma_s_2to2(beta, Gphi_over_Gf, temp, p)
+    return phase_space_ratio*(Gphi_over_Gf*c.Gf)**2*temp**4*gamma_s_2to2(p, temp, beta, Gphi_over_Gf)
 
 def sterile_decay_rate(ms, Gphi_over_Gf, numerical_factor=1):
     """Sterile neutrino decay into three light steriles. The numerical factor accounts for the difference from 3 neutrino decay"""
