@@ -51,7 +51,7 @@ def compute_energy_density(T, m, sign):
         elif sign == -1:
             return T**4*np.pi**2/30
     if y > 20:
-        return 0
+        return np.exp(-y)*y**2.5*T**4/(2*np.pi)**1.5
     # intermediate calculation
     def integrand(x):
         return x**2 * np.sqrt(x**2 + y**2)/(np.exp(np.sqrt(x**2 + y**2)) + sign)

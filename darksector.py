@@ -176,7 +176,7 @@ def gamma_s_2to4(p, temp, beta, Gphi_over_Gf, phase_space_ratio=1):
 
 def sterile_decay_rate(ms, Gphi_over_Gf, numerical_factor=1):
     """Sterile neutrino decay into three light steriles. The numerical factor accounts for the difference from 3 neutrino decay"""
-    return numerical_factor*(Gphi_over_Gf*c.Gf)**2*ms**5/(192*np.pi**3)
+    return numerical_factor*(Gphi_over_Gf*c.Gf)**2*ms**5/(1024*np.pi**3)
 
 def main_rho(args):
     # convert input arguments. Make sure that T_SM_domain is largest to smallest
