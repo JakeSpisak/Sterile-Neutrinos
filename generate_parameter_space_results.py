@@ -17,7 +17,7 @@ from scipy import special, interpolate, optimize, fft
 # Theta is not included in the scan - the analytical dependency is used instead.
 with open('results/rho_computation_no_theta.pkl', 'rb') as file:
     data_dict = pickle.load(file)
-ms_idx = 51
+ms_idx = 0
 T_SM_final = data_dict['T_SM_domain'][0,ms_idx:,-1]
 rho_DS_final = data_dict['rho_DS_domain'][0,ms_idx:,-1]
 
@@ -39,7 +39,7 @@ scale_factor_interp = interpolate.interp1d(ms1_values, scale_factor_ratio, kind=
 # Create a dense 2D grid with dimensions (sinsq2theta, ms1)
 num = 100
 ms1_dense = np.logspace(np.log10(np.min(ms1_values)), np.log10(np.max(ms1_values)), num)
-sinsq2theta_dense = np.logspace(-25, -10, num)
+sinsq2theta_dense = np.logspace(-24, -8, num)
 X, Y = np.meshgrid(np.log10(ms1_dense), np.log10(sinsq2theta_dense))
 
 T_DS_dense, scale_factor_dense, T_DS_dense_today, T_SM_dense = [], [], [], []

@@ -37,31 +37,25 @@ flavor = input_params['flavor']
 
 plt.figure(figsize=(8,8))
 
+#Contours 
+
 # Make all the contour lines solid
 contours = plt.contour(X, Y, np.log10(ms2_required.T), colors='k', linestyles='solid', alpha=1,
-                       levels=np.linspace(-7, 7, 8))
+                       levels=np.linspace(-7, 9, 9))
 # Put the contour labels as 10^x
 def format_func(value, tick_number):
     return r'{:.2g}'.format(10**(value))
 plt.clabel(contours, inline=True, fontsize=16,  fmt=FuncFormatter(format_func))
 
-plt.xlabel(r'$Log_{10}(m_{N1}$/MeV)')
-plt.ylabel(r'$Log_{10}(\sin^2(2 \theta))$')
-plt.gca().set_aspect(0.3)
-# Make the colorbar size the same as the plot
-plt.gcf().set_size_inches(10, 8)
-plt.tight_layout()
-
 # Constraints
 
-# ms1=3ms2 constraint
-plt.plot(np.log10(ms1_dense), log_sinsq2theta_equal, c='b')
-plt.annotate('m$_{N1}$=3m$_{N2}$', (1.5, -19.9), fontsize=18, c='b', rotation=-42)
+# Annotations
+plt.annotate('m$_{N1}$=3m$_{N2}$', (1.2, -19.4), fontsize=18, c='b', rotation=-42)
+plt.annotate('free streaming bound', (-0.3, -13), fontsize=18, c='b', rotation=-20)
 
 # fs contraints
 fs_limit = 9.7*10**-3 # Minimum free streaming mass in MeV: from Nadler et. al. 2021
-fs_contour = plt.contour(X, Y, np.log10(ms2_required.T), colors='b', linestyles='solid', levels=[np.log10(fs_limit)])
-plt.annotate('free streaming bound', (1, -13.8), fontsize=18, c='b', rotation=-20)
+fs_contour = plt.contour(X, Y, np.log10(ms2_required.T), colors='b', linestyles='solid', levels=[np.log10(fs_limit)], alpha=0)
 fs_path = fs_contour.collections[0].get_paths()[0]
 fs_x_values = fs_path.vertices[:, 0]
 fs_y_values = fs_path.vertices[:, 1]
@@ -69,8 +63,17 @@ fs_y_values = fs_path.vertices[:, 1]
 # Hatched region between ms1=ms2 and fs_constraints
 fs_interp = interpolate.interp1d(fs_x_values, fs_y_values, kind='linear', bounds_error=False, fill_value='extrapolate')
 fs_y_interpolated = fs_interp(np.log10(ms1_dense))
-plt.fill_between(np.log10(ms1_dense), log_sinsq2theta_equal, fs_y_interpolated, where=(log_sinsq2theta_equal < fs_y_interpolated), color='blue', hatch='//', alpha=0.4)
+plt.fill_between(np.log10(ms1_dense), log_sinsq2theta_equal, fs_y_interpolated, where=(log_sinsq2theta_equal < fs_y_interpolated), 
+                 color='lightsteelblue', edgecolor='b', linewidth=2)
+
+plt.xlabel(r'$Log_{10}(m_{N1}$/MeV)')
+plt.ylabel(r'$Log_{10}(\sin^2(2 \theta))$')
+plt.gca().set_aspect(0.4)
+plt.tight_layout()
 plt.grid()
+plt.xlim(-2, 4)
+
+plt.show()
 
 plt.savefig("plots/mN2_required.png")
 
@@ -80,22 +83,19 @@ plt.savefig("plots/mN2_required.png")
 
 plt.figure(figsize=(8,8))
 
-levels = [0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1]
+# Contours
+levels = [0.00003, 0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1]
 contours = plt.contour(X, Y, temp_ratio.T, levels, colors='k')
 plt.clabel(contours, inline=True, fontsize=12)
 
-plt.xlabel(r'$Log_{10}(m_{N1}$/MeV)')
-plt.ylabel(r'$Log_{10}(\sin^2(2 \theta))$')
-
 # Constraints
 
-# ms1=3ms2 constraint
-plt.plot(np.log10(ms1_dense), log_sinsq2theta_equal, c='b')
-plt.annotate('m$_{N1}$=3m$_{N2}$', (0.6, -17.7), fontsize=18, c='b', rotation=-32)
+# Labels
+plt.annotate('m$_{N1}$=3m$_{N2}$', (0.6, -17.9), fontsize=18, c='b', rotation=-38)
+plt.annotate('free streaming bound', (-0.3, -12), fontsize=18, c='b', rotation=-17)
 
 # fs contraints
-fs_contour = plt.contour(X, Y, np.log10(ms2_required.T), colors='b', linestyles='solid', levels=[np.log10(fs_limit)])
-plt.annotate('free streaming bound', (0.1, -11.7), fontsize=18, c='b', rotation=-15)
+fs_contour = plt.contour(X, Y, np.log10(ms2_required.T), colors='b', linestyles='solid', levels=[np.log10(fs_limit)], alpha=0)
 fs_path = fs_contour.collections[0].get_paths()[0]
 fs_x_values = fs_path.vertices[:, 0]
 fs_y_values = fs_path.vertices[:, 1]
@@ -103,12 +103,15 @@ fs_y_values = fs_path.vertices[:, 1]
 # Hatched region between ms1=3ms2 and fs_constraints
 fs_interp = interpolate.interp1d(fs_x_values, fs_y_values, kind='linear', bounds_error=False, fill_value='extrapolate')
 fs_y_interpolated = fs_interp(np.log10(ms1_dense))
-plt.fill_between(np.log10(ms1_dense), log_sinsq2theta_equal, fs_y_interpolated, where=(log_sinsq2theta_equal < fs_y_interpolated), color='blue', hatch='//', alpha=0.4)
+plt.fill_between(np.log10(ms1_dense), log_sinsq2theta_equal, fs_y_interpolated, where=(log_sinsq2theta_equal < fs_y_interpolated), 
+                 color='lightsteelblue', edgecolor='b', linewidth=2)
 
-plt.gca().set_aspect(0.3)
-plt.gcf().set_size_inches(10, 8)
+plt.xlabel(r'$Log_{10}(m_{N1}$/MeV)')
+plt.ylabel(r'$Log_{10}(\sin^2(2 \theta))$')
+plt.gca().set_aspect(0.4)
 plt.tight_layout()
 plt.grid()
+plt.xlim(-2, 4)
 
 plt.savefig("plots/temperature_ratio.png", bbox_inches='tight')
 
